@@ -65,7 +65,7 @@
             <p class="mt-2 text-gray-600 dark:text-gray-400">CSVファイルをアップロード、または保存済みデータから選択して局面を一覧表示します。</p>
         </header>
 
-        <div class="grid lg:grid-cols-3 gap-8">
+        <div class="grid lg:grid-cols-4 gap-8">
             <!-- Left Column: Inputs and Saved Data -->
             <div class="lg:col-span-1 space-y-8">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -83,17 +83,13 @@
             </div>
 
             <!-- Right Column: Viewer and Options -->
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-3">
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
                     <h3 class="block mb-4 text-lg font-medium text-gray-700 dark:text-gray-300">表示オプション</h3>
                      <div class="flex flex-wrap items-center gap-6">
                         <div>
                             <label for="min-count" class="block text-sm font-medium text-gray-700 dark:text-gray-300">出現回数の下限</label>
                             <input type="number" id="min-count" value="1" min="1" class="w-24 mt-1 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                        </div>
-                        <div>
-                            <label for="column-count" class="block text-sm font-medium text-gray-700 dark:text-gray-300">横の表示数 (列)</label>
-                            <input type="number" id="column-count" value="2" min="1" max="5" class="w-24 mt-1 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                         </div>
                         <div class="self-end">
                             <button id="apply-settings" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">表示を更新</button>
@@ -105,7 +101,7 @@
                     <p id="status-message">CSVファイルをアップロードするか、保存済みデータから選択してください。</p>
                 </div>
                 
-                <div id="boards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div id="boards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <!-- Boards will be rendered here -->
                 </div>
             </div>
@@ -123,7 +119,6 @@
         const statusDisplay = document.getElementById('status-display');
         const statusMessage = document.getElementById('status-message');
         const minCountInput = document.getElementById('min-count');
-        const columnCountInput = document.getElementById('column-count');
         const applySettingsButton = document.getElementById('apply-settings');
         const savedFilesList = document.getElementById('saved-files-list');
         const storageStatusDiv = document.getElementById('storage-status');
@@ -180,7 +175,6 @@
 
             boardsContainer.innerHTML = '';
             const minCount = parseInt(minCountInput.value, 10) || 1;
-            const columnCount = parseInt(columnCountInput.value, 10) || 2;
             
             const filteredRecords = allRecords.filter(record => record.count >= minCount);
 
@@ -189,7 +183,6 @@
                 return;
             }
             
-            boardsContainer.className = `grid grid-cols-1 md:grid-cols-${Math.min(columnCount, 2)} lg:grid-cols-${columnCount} gap-6`;
             displayBoards(filteredRecords);
             showStatus(`${filteredRecords.length} 件の局面を表示しています。`);
         }
