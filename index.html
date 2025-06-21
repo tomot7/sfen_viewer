@@ -75,8 +75,17 @@
 
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                     <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300">保存済みデータ</h3>
-                    <div id="storage-status" class="text-xs text-gray-500 dark:text-gray-400 mt-1"></div>
-                    <ul id="saved-files-list" class="space-y-3 mt-4 max-h-96 overflow-y-auto pr-2">
+                    <div id="storage-status" class="text-xs text-gray-500 dark:text-gray-400 my-2"></div>
+                    
+                    <div class="mt-4 space-y-2">
+                         <label for="storage-limit" class="block text-sm font-medium text-gray-700 dark:text-gray-300">ストレージ上限 (MB)</label>
+                         <div class="flex items-center gap-2">
+                             <input type="number" id="storage-limit" value="1" min="1" max="5" class="w-20 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                             <button id="save-storage-limit" class="text-xs bg-gray-600 hover:bg-gray-700 text-white font-semibold py-1 px-2 rounded">設定を保存</button>
+                         </div>
+                    </div>
+
+                    <ul id="saved-files-list" class="space-y-3 mt-4 max-h-80 overflow-y-auto pr-2">
                         <!-- Saved items will be injected here -->
                     </ul>
                 </div>
@@ -111,7 +120,7 @@
     <script>
         const sfenToKanjiMap = { 'P': '歩', 'L': '香', 'N': '桂', 'S': '銀', 'G': '金', 'B': '角', 'R': '飛', 'K': '玉', '+P': 'と', '+L': '杏', '+N': '圭', '+S': '全', '+B': '馬', '+R': '龍' };
         const STORAGE_PREFIX = 'sfen_viewer_csv_';
-        const MAX_STORAGE_SIZE = 1 * 1024 * 1024; // 1MB
+        const STORAGE_LIMIT_KEY = 'sfen_viewer_storage_limit_mb';
 
         // DOM Elements
         const fileInput = document.getElementById('csv-file');
@@ -122,6 +131,8 @@
         const applySettingsButton = document.getElementById('apply-settings');
         const savedFilesList = document.getElementById('saved-files-list');
         const storageStatusDiv = document.getElementById('storage-status');
+        const storageLimitInput = document.getElementById('storage-limit');
+        const saveStorageLimitButton = document.getElementById('save-storage-limit');
         
         let allRecords = [];
 
@@ -129,9 +140,14 @@
         document.addEventListener('DOMContentLoaded', initializeApp);
         fileInput.addEventListener('change', handleFileSelect);
         applySettingsButton.addEventListener('click', renderFilteredBoards);
+        saveStorageLimitButton.addEventListener('click', saveStorageLimit);
 
         // --- Initialization ---
         function initializeApp() {
+            const savedLimit = localStorage.getItem(STORAGE_LIMIT_KEY);
+            if(savedLimit) {
+                storageLimitInput.value = savedLimit;
+            }
             loadSavedFiles();
         }
 
@@ -206,10 +222,23 @@
         }
 
         // --- LocalStorage Functions ---
+        function saveStorageLimit() {
+            let limit = parseInt(storageLimitInput.value, 10);
+            if (isNaN(limit) || limit < 1) {
+                limit = 1;
+            } else if (limit > 5) {
+                limit = 5;
+            }
+            storageLimitInput.value = limit;
+            localStorage.setItem(STORAGE_LIMIT_KEY, limit);
+            updateStorageStatus();
+            alert(`ストレージ上限を ${limit}MB に設定しました。`);
+        }
+
         function saveCsvToLocalStorage(filename, csvText) {
             const dataSize = (filename.length + csvText.length) * 2;
             if (!canStore(dataSize)) {
-                showStatus('ストレージ容量が上限(1MB)に達したため、保存できませんでした。古いデータを削除してください。', true);
+                showStatus('ストレージ容量が上限に達したため、保存できませんでした。古いデータを削除するか、上限を増やしてください。', true);
                 return;
             }
             try {
@@ -284,13 +313,15 @@
         }
 
         function canStore(newDataSize) {
-            return getLocalStorageSize() + newDataSize < MAX_STORAGE_SIZE;
+            const maxStorageBytes = (localStorage.getItem(STORAGE_LIMIT_KEY) || 1) * 1024 * 1024;
+            return getLocalStorageSize() + newDataSize < maxStorageBytes;
         }
         
         function updateStorageStatus() {
+            const maxStorageBytes = (localStorage.getItem(STORAGE_LIMIT_KEY) || 1) * 1024 * 1024;
             const currentSize = getLocalStorageSize();
-            const percentage = ((currentSize / MAX_STORAGE_SIZE) * 100).toFixed(2);
-            storageStatusDiv.textContent = `使用量: ${(currentSize / 1024).toFixed(1)} KB / 1024 KB (${percentage}%)`;
+            const percentage = maxStorageBytes > 0 ? ((currentSize / maxStorageBytes) * 100).toFixed(2) : 0;
+            storageStatusDiv.textContent = `使用量: ${(currentSize / 1024).toFixed(1)} KB / ${(maxStorageBytes / 1024).toFixed(0)} KB (${percentage}%)`;
         }
 
         // --- Display Functions ---
