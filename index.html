@@ -100,6 +100,10 @@
                             <label for="min-count" class="block text-sm font-medium text-gray-700 dark:text-gray-300">出現回数の下限</label>
                             <input type="number" id="min-count" value="1" min="1" class="w-24 mt-1 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                         </div>
+                        <div>
+                            <label for="min-move" class="block text-sm font-medium text-gray-700 dark:text-gray-300">開始手数</label>
+                            <input type="number" id="min-move" value="1" min="1" class="w-24 mt-1 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
                         <div class="self-end">
                             <button id="apply-settings" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">表示を更新</button>
                         </div>
@@ -128,6 +132,7 @@
         const statusDisplay = document.getElementById('status-display');
         const statusMessage = document.getElementById('status-message');
         const minCountInput = document.getElementById('min-count');
+        const minMoveInput = document.getElementById('min-move');
         const applySettingsButton = document.getElementById('apply-settings');
         const savedFilesList = document.getElementById('saved-files-list');
         const storageStatusDiv = document.getElementById('storage-status');
@@ -191,8 +196,12 @@
 
             boardsContainer.innerHTML = '';
             const minCount = parseInt(minCountInput.value, 10) || 1;
+            const minMove = parseInt(minMoveInput.value, 10) || 1;
             
-            const filteredRecords = allRecords.filter(record => record.count >= minCount);
+            const filteredRecords = allRecords.filter(record => {
+                 const moveNumber = parseInt(record.sfen.split(' ')[3], 10);
+                 return record.count >= minCount && moveNumber >= minMove;
+            });
 
             if (filteredRecords.length === 0) {
                 showStatus('指定された条件に一致する局面はありません。');
@@ -231,8 +240,16 @@
             }
             storageLimitInput.value = limit;
             localStorage.setItem(STORAGE_LIMIT_KEY, limit);
+            
+            const currentSize = getLocalStorageSize();
+            const newMaxBytes = limit * 1024 * 1024;
+            
+            if (currentSize > newMaxBytes) {
+                showStatus(`警告: 現在の使用量が設定した上限を超えています。新しいデータを保存するには、古いデータを削除してください。`, true);
+            } else {
+                 showStatus(`ストレージ上限を ${limit}MB に設定しました。`, false);
+            }
             updateStorageStatus();
-            alert(`ストレージ上限を ${limit}MB に設定しました。`);
         }
 
         function saveCsvToLocalStorage(filename, csvText) {
