@@ -52,9 +52,6 @@
             margin: 1px 2px;
             font-size: 16px;
         }
-        .sfen-input {
-             cursor: default;
-        }
         .modal-backdrop {
             background-color: rgba(0,0,0,0.5);
         }
@@ -117,7 +114,7 @@
                     <p id="status-message">CSVファイルをアップロードするか、保存済みデータから選択してください。</p>
                 </div>
                 
-                <div id="boards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <div id="boards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Boards will be rendered here -->
                 </div>
             </div>
@@ -470,34 +467,46 @@
             let countHTML = (count !== null && !isNaN(count)) ? `<div class="text-center"><span class="text-xs text-gray-500 dark:text-gray-400">出現回数</span><p class="font-bold text-base text-indigo-600 dark:text-indigo-400">${count}</p></div>` : '';
             infoDiv.innerHTML = `<div class="flex justify-around items-baseline"><div class="text-center"><span class="text-xs text-gray-500 dark:text-gray-400">手番</span><p class="font-bold text-base">${turn === 'b' ? '▲ 先手' : '△ 後手'}</p></div>${countHTML}</div>`;
 
-            const sfenContainer = document.createElement('div');
-            sfenContainer.className = 'relative flex items-center';
-            const sfenInput = document.createElement('input');
-            sfenInput.type = 'text', sfenInput.value = sfen, sfenInput.readOnly = true;
-            sfenInput.className = 'sfen-input text-xs w-full text-gray-500 bg-gray-100 dark:bg-gray-700 p-2 pr-10 rounded-md border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-500';
-            const copyButton = document.createElement('button');
-            copyButton.title = "SFENをコピー";
-            copyButton.className = 'absolute right-0 top-0 h-full px-2 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white transition-colors';
-            const copyIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>`;
-            const successIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>`;
-            copyButton.innerHTML = copyIcon;
-            copyButton.addEventListener('click', (e) => {
-                e.stopPropagation(); sfenInput.select(); document.execCommand('copy'); window.getSelection().removeAllRanges();
-                copyButton.innerHTML = successIcon; setTimeout(() => { copyButton.innerHTML = copyIcon; }, 2000);
-            });
-            sfenContainer.appendChild(sfenInput); sfenContainer.appendChild(copyButton); infoDiv.appendChild(sfenContainer);
+            // Buttons
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.className = 'grid grid-cols-2 gap-2 mt-2';
             
-            const commentDiv = document.createElement('div');
-            const commentDisplay = document.createElement('p');
-            commentDisplay.textContent = comment || 'コメントはありません';
-            commentDisplay.className = `comment-display text-xs p-2 rounded ${comment ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'text-gray-500 italic'}`;
             const commentButton = document.createElement('button');
             commentButton.textContent = 'コメント';
-            commentButton.className = 'text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 px-3 py-1 rounded-md mt-1';
+            commentButton.className = 'text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 px-3 py-2 rounded-md w-full';
             commentButton.onclick = () => openCommentModal(sfen);
-            commentDiv.appendChild(commentDisplay);
-            commentDiv.appendChild(commentButton);
-            infoDiv.appendChild(commentDiv);
+            buttonsContainer.appendChild(commentButton);
+
+            const copyButton = document.createElement('button');
+            copyButton.textContent = 'SFENコピー';
+            copyButton.className = 'text-xs bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 px-3 py-2 rounded-md w-full';
+            copyButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = sfen;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+
+                const originalText = e.target.textContent;
+                e.target.textContent = 'コピー完了';
+                e.target.classList.add('bg-green-500', 'text-white', 'dark:bg-green-600');
+                setTimeout(() => {
+                    e.target.textContent = originalText;
+                    e.target.classList.remove('bg-green-500', 'text-white', 'dark:bg-green-600');
+                }, 2000);
+            });
+            buttonsContainer.appendChild(copyButton);
+            infoDiv.appendChild(buttonsContainer);
+
+            // Comment Display
+            const commentDisplayWrapper = document.createElement('div');
+            const commentDisplay = document.createElement('p');
+            commentDisplay.textContent = comment || 'コメントはありません';
+            commentDisplay.className = `comment-display text-xs p-2 mt-2 rounded-md whitespace-pre-wrap ${comment ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'text-gray-500 italic'}`;
+            commentDisplayWrapper.appendChild(commentDisplay)
+            infoDiv.appendChild(commentDisplayWrapper);
 
             wrapper.appendChild(infoDiv);
             return wrapper;
