@@ -110,9 +110,6 @@
                         <div class="self-end">
                             <button id="apply-settings" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">表示を更新</button>
                         </div>
-                         <div class="self-end">
-                            <button id="download-csv" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed">CSVダウンロード</button>
-                        </div>
                      </div>
                 </div>
 
@@ -154,7 +151,6 @@
         const minCountInput = document.getElementById('min-count');
         const minMoveInput = document.getElementById('min-move');
         const applySettingsButton = document.getElementById('apply-settings');
-        const downloadCsvButton = document.getElementById('download-csv');
         const savedFilesList = document.getElementById('saved-files-list');
         const storageStatusDiv = document.getElementById('storage-status');
         const storageLimitInput = document.getElementById('storage-limit');
@@ -166,12 +162,12 @@
         
         let allRecords = [];
         let currentEditingSfen = null;
+        let currentLoadedKey = null;
 
         // --- Event Listeners ---
         document.addEventListener('DOMContentLoaded', initializeApp);
         fileInput.addEventListener('change', handleFileSelect);
         applySettingsButton.addEventListener('click', renderFilteredBoards);
-        downloadCsvButton.addEventListener('click', downloadCSV);
         saveStorageLimitButton.addEventListener('click', saveStorageLimit);
         cancelCommentButton.addEventListener('click', () => commentModal.classList.add('hidden'));
         saveCommentButton.addEventListener('click', handleSaveComment);
@@ -192,11 +188,11 @@
 
             showStatus('CSVファイルを処理中...');
             applySettingsButton.disabled = true;
-            downloadCsvButton.disabled = true;
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 const csvText = e.target.result;
+                currentLoadedKey = null; // New file, not from storage yet
                 processAndRender(csvText);
                 saveCsvToLocalStorage(file.name, csvText);
             };
@@ -211,7 +207,6 @@
                     return;
                 }
                 applySettingsButton.disabled = false;
-                downloadCsvButton.disabled = false;
                 renderFilteredBoards();
             } catch (error) {
                 showStatus(`エラー: ${error.message}`, true);
@@ -256,7 +251,6 @@
             if(countIndex === -1) { throw new Error('CSVヘッダーに "出現回数" が見つかりません。'); }
 
             return lines.map(line => {
-                // This regex handles quoted SFENs and comments that might contain commas
                 const values = line.match(/(?:[^\s",]+|"[^"]*")+/g) || [];
                 const sfen = (values[0] || '').replace(/"/g, '');
                 const count = parseInt(values[countIndex], 10);
@@ -264,21 +258,31 @@
                 return { sfen, count, comment };
             }).filter(r => r.sfen && !isNaN(r.count));
         }
-
-        function downloadCSV() {
+        
+        function generateCsvFromRecords(records) {
             const header = '"SFEN","出現回数","コメント"\n';
-            const rows = allRecords.map(rec => {
+            const rows = records.map(rec => {
                 const sfen = `"${rec.sfen}"`;
                 const count = rec.count;
                 const comment = `"${(rec.comment || '').replace(/"/g, '""')}"`;
                 return `${sfen},${count},${comment}`;
             });
-            const csvContent = header + rows.join('\n');
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+            return header + rows.join('\n');
+        }
+
+        function downloadSpecificCSV(key) {
+            const data = JSON.parse(localStorage.getItem(key));
+            if (!data) {
+                showStatus('指定された保存データが見つかりません。', true);
+                return;
+            }
+            const originalFilename = data.filename.replace(/\.csv$/i, '');
+            const downloadFilename = `${originalFilename}_コメント付き.csv`;
+            
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), data.csvText], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `sfen_analysis_with_comments.csv`);
+            link.setAttribute("href", URL.createObjectURL(blob));
+            link.setAttribute("download", downloadFilename);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -303,12 +307,22 @@
                 }
                 commentModal.classList.add('hidden');
                 commentModal.classList.remove('flex');
-                // Re-render only the affected board for efficiency
+
                 const boardElement = document.querySelector(`[data-sfen="${currentEditingSfen}"]`);
                 if(boardElement){
                     const commentDisplay = boardElement.querySelector('.comment-display');
                     commentDisplay.textContent = record.comment || 'コメントはありません';
                     commentDisplay.className = `comment-display text-xs p-2 rounded ${record.comment ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'text-gray-500 italic'}`;
+                }
+
+                if (currentLoadedKey) {
+                    const data = JSON.parse(localStorage.getItem(currentLoadedKey));
+                    if (data) {
+                        const updatedCsvText = generateCsvFromRecords(allRecords);
+                        data.csvText = updatedCsvText;
+                        localStorage.setItem(currentLoadedKey, JSON.stringify(data));
+                        updateStorageStatus();
+                    }
                 }
                 currentEditingSfen = null;
             }
@@ -343,6 +357,7 @@
                 const key = `${STORAGE_PREFIX}${Date.now()}`;
                 const data = { filename, csvText, savedAt: new Date().toISOString() };
                 localStorage.setItem(key, JSON.stringify(data));
+                currentLoadedKey = key; // Set key for newly saved data
                 loadSavedFiles();
             } catch (e) {
                 console.error("LocalStorageへの保存に失敗しました: ", e);
@@ -373,8 +388,9 @@
                             <strong class="text-sm truncate block">${filename}</strong>
                             <small class="text-xs text-gray-500">${new Date(savedAt).toLocaleString()}</small>
                         </div>
-                        <div class="flex-shrink-0 space-x-2">
+                        <div class="flex-shrink-0 space-x-1">
                             <button data-key="${key}" class="load-btn text-xs bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-2 rounded">読込</button>
+                            <button data-key="${key}" class="download-btn text-xs bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-2 rounded">CSV</button>
                             <button data-key="${key}" class="delete-btn text-xs bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-2 rounded">削除</button>
                         </div>
                     `;
@@ -382,8 +398,13 @@
                 });
 
                 document.querySelectorAll('.load-btn').forEach(btn => btn.addEventListener('click', (e) => {
-                    const data = JSON.parse(localStorage.getItem(e.target.dataset.key));
+                    currentLoadedKey = e.target.dataset.key;
+                    const data = JSON.parse(localStorage.getItem(currentLoadedKey));
                     processAndRender(data.csvText);
+                }));
+                
+                 document.querySelectorAll('.download-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                    downloadSpecificCSV(e.target.dataset.key);
                 }));
 
                 document.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', (e) => {
